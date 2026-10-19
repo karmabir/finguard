@@ -1,0 +1,182 @@
+[
+ {
+  "txn_id": 6273159,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0379,
+  "summary": "Transaction 6273159 is a CASH_OUT that drains 100% of the origin account's balance (amount=407347.84 equals oldbalanceOrg=407347.84, newbalanceOrig=0.0), matching the account-emptying fraud pattern in P-02. The destination account C80156835 shows a recurring pattern of receiving large sums from multiple distinct origin accounts that were each also drained to zero or near-zero (txn_ids 3798152, 5567073, 6140667), consistent with mule-account aggregation behavior described in P-06. Combined, these indicators warrant escalation rather than mere review."
+ },
+ {
+  "txn_id": 6283993,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 7,
+  "cost": 0.0668,
+  "summary": "Transaction 6283993 is a CASH_OUT of amount=69032.49 where oldbalanceOrg=0.0 and newbalanceOrig=0.0, an unreconciled balance pattern inconsistent with a normal cash-out. The destination account nameDest=C349638585 shows a clear mule/collector pattern, receiving inflows from five distinct, apparently unrelated origin accounts (C933706906, C1464031650, C2022229436, C1247798768, C1202562478) across steps 249-683 with balance continuously accumulating (0 to 313125.31) and no offsetting outflow visible. Combined, these anomalies (unreconciled origin balance plus multi-source fund aggregation at destination) exceed simple false-positive explanations and warrant escalation per P-04 and P-06 guidance on destination risk patterns."
+ },
+ {
+  "txn_id": 6283807,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0368,
+  "summary": "Transaction txn_id=6283807 is a CASH_OUT of amount=1619313.55 that completely drained the origin account (oldbalanceOrg=1619313.55 to newbalanceOrig=0.0), sent to a destination account with no prior balance (oldbalanceDest=0.0) and no prior transaction history with the origin. This matches P-02 (account-emptying pattern), P-01 (high-value transfer above 1,000,000 with no prior legitimate origin-destination history), and P-04 (empty destination account indicating possible mule account), all of which support escalation."
+ },
+ {
+  "txn_id": 6335301,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 4,
+  "cost": 0.0422,
+  "summary": "Transaction 6335301 is a TRANSFER of amount=283728.87 that empties the origin account (oldbalanceOrg=18327.0, newbalanceOrig=0.0), matching the account-emptying pattern in P-02, despite the amount being far larger than the stated old balance \u2014 an internal inconsistency suggesting manipulated or unreliable balance data. No prior transaction history exists for nameOrig=C921030361 or nameDest=C2063965563 to corroborate legitimacy, and the destination balance increase (oldbalanceDest=29828.97 to newbalanceDest=313557.84) is consistent with receiving this transfer but shows no subsequent cash-out to confirm or rule out a round-trip chain (P-06). Given the balance irregularity and full account drain with no corroborating history, this transaction should be escalated for further investigation."
+ },
+ {
+  "txn_id": 6362476,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0382,
+  "summary": "Transaction txn_id=6362476 is a TRANSFER of amount=219934.26 that exactly equals oldbalanceOrg=219934.26, fully draining the origin account to newbalanceOrig=0.0, matching policy P-02's account-emptying fraud pattern. The destination account shows oldbalanceDest=0.0 and newbalanceDest=0.0 despite receiving the funds, matching P-04's empty/mule-account indicator, and no prior transaction history exists for either account to provide mitigating context. The combination of P-02 and P-04 indicators, as P-04 itself notes, raises risk to escalation level."
+ },
+ {
+  "txn_id": 6310490,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 6,
+  "cost": 0.0559,
+  "summary": "Transaction txn_id=6310490 (CASH_OUT, amount=60323.5) is the fourth in a sequence of CASH_OUT transactions from four different, apparently unrelated origin accounts (C1375970404, C178035857, C451573736, C403866436) all funneling into the same destination account C1454406046, whose balance has grown from 0 to 297728.96 across these deposits. Each origin account was emptied to a newbalanceOrig of 0.0, and C1454406046 started with oldbalanceDest=0.0 at its first appearance \u2014 a pattern matching P-04 (empty/mule-style destination) combined with repeated P-02-style account-emptying behavior, strongly suggestive of a money-mule collection account rather than isolated false positives (P-08 does not apply given multiple converging indicators)."
+ },
+ {
+  "txn_id": 6296624,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0333,
+  "summary": "Transaction 6296624 is a TRANSFER of 6250438.78 that drains the origin account C2029976755 from its full balance to 0.0 (100% of oldbalanceOrg), matching the account-emptying pattern in P-02. The destination account C693212579 had oldbalanceDest=0.0 and newbalanceDest=0.0 despite receiving the funds, indicating a likely new/mule account per P-04, and no other transaction history exists for either account to provide mitigating context."
+ },
+ {
+  "txn_id": 6359987,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 5,
+  "cost": 0.045,
+  "summary": "Transaction 6359987 is a CASH_OUT of amount=188697.34 that drained the origin account to newbalanceOrig=0.0 despite oldbalanceOrg being only 19881.0, a severe balance inconsistency and a full account-emptying pattern per P-02. The destination account C5480754 shows a mule-like pattern, receiving funds from at least seven distinct unrelated origin accounts across prior transactions, raising further suspicion of fund aggregation. These combined indicators (account-emptying plus suspicious destination fan-in plus unexplained balance mismatch) meet the threshold for escalation under P-02."
+ },
+ {
+  "txn_id": 6273206,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0366,
+  "summary": "Transaction 6273206 is a TRANSFER that drains 100% of the origin account's balance (amount=146095.73 equals oldbalanceOrg=146095.73, newbalanceOrig=0.0), matching the account-emptying pattern in policy P-02 which mandates escalation. The destination account also shows oldbalanceDest=0.0 and newbalanceDest=0.0 despite receiving the funds, consistent with an empty/unknown or mule-style account per P-04, and no prior transaction history exists for either party to provide reassuring context."
+ },
+ {
+  "txn_id": 6292377,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 4,
+  "cost": 0.0442,
+  "summary": "Transaction 6292377 is a CASH_OUT of amount=80084.35 that fully drained the origin account (newbalanceOrig=0.0) despite oldbalanceOrg being only 9990.0 \u2014 an irreconcilable balance discrepancy (amount ~8x the stated pre-transaction balance). Funds landed in a destination account with oldbalanceDest=0.0 (classic mule-account receipt pattern), and no other transaction history exists for either account to provide reassuring context. This matches P-02's account-emptying pattern and P-03's high-risk CASH_OUT type, and does not qualify for the P-08 false-positive exception since the amount is not well below the origin balance but grossly exceeds it, indicating likely balance manipulation or fraud."
+ },
+ {
+  "txn_id": 6273172,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0365,
+  "summary": "Transaction 6273172 is a TRANSFER of amount=26153.82 that exactly matches oldbalanceOrg=26153.82, fully draining the origin account to newbalanceOrig=0.0, which matches policy P-02's account-emptying fraud pattern. Additionally, the destination account C1611752752 had oldbalanceDest=0.0 and newbalanceDest=0.0 despite receiving the funds, matching P-04's empty/unknown destination indicator and suggesting mule-account behavior. With no prior transaction history on either account to provide mitigating context, the combination of P-02 and P-04 indicators warrants escalation."
+ },
+ {
+  "txn_id": 6287692,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 5,
+  "cost": 0.0415,
+  "summary": "Transaction 6287692 (CASH_OUT, amount=268020.61) is highly anomalous: oldbalanceOrg=1628.0 is far smaller than the amount moved, and newbalanceOrig=0.0, indicating the ledger does not reconcile and the origin account was fully drained. The destination account C190447545 had oldbalanceDest=0.0 (P-04, mule-style account) and was also the recipient of a separate large TRANSFER (amount=5166393.44, txn_id=6130056) that left it at 0 balance, suggesting pass-through/mule behavior (P-02, P-06)."
+ },
+ {
+  "txn_id": 6296619,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0562,
+  "summary": "Transaction txn_id=6296619 is a CASH_OUT of amount=171651.7 that empties the entire origin balance (oldbalanceOrg=171651.7, newbalanceOrig=0.0), matching the account-emptying fraud pattern in P-02. The destination account C1174681739 has a history of receiving 7 similar transactions from distinct origin accounts, nearly all of which were also drained to a newbalanceOrig of 0.0, indicating it functions as a mule/collection account aggregating funds from repeated account-emptying transactions. This combination of P-02 (account-emptying) and a corroborating destination pattern of serial fund collection warrants escalation rather than mere review."
+ },
+ {
+  "txn_id": 6302615,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 5,
+  "cost": 0.0392,
+  "summary": "Transaction 6302615 is a CASH_OUT of amount=65035.52 that empties the origin account (newbalanceOrig=0.0 from oldbalanceOrg=16333.0), matching the account-emptying pattern in P-02, and sends funds to a destination account with oldbalanceDest=0.0, consistent with a mule-style account per P-04. No prior transaction history exists for either account to establish legitimacy, and the stated amount exceeds the prior origin balance, indicating a data inconsistency that compounds the risk. Per policy guidance to combine P-02 and P-04 signals, this transaction should be escalated."
+ },
+ {
+  "txn_id": 6361195,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0354,
+  "summary": "Transaction 6361195 is a TRANSFER of amount=394605.69 that drains the entire origin balance (oldbalanceOrg=394605.69 to newbalanceOrig=0.0), matching the account-emptying pattern in P-02 which calls for escalation. The destination account C1909363754 had oldbalanceDest=0.0 and newbalanceDest=0.0 despite receiving the funds, indicating a mule-style/unknown account per P-04, and no prior transaction history exists between nameOrig and nameDest, so the high-value exception in P-01 (prior legitimate history) does not apply."
+ },
+ {
+  "txn_id": 6332174,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 5,
+  "cost": 0.0436,
+  "summary": "Transaction 6332174 empties the originator's account (oldbalanceOrg=25265.0 to newbalanceOrig=0.0) via a TRANSFER of amount=485970.7, matching the account-emptying fraud pattern in P-02. The destination account C2134957250 is a repeat collection hub that has received large CASH_OUT/TRANSFER inflows from at least 7 other distinct, unrelated origin accounts across steps 325-690, accumulating over $1.5M, which is consistent with a money-mule/layering network rather than normal activity. The mismatch between the transferred amount and the origin's pre-transaction balance is also an unexplained anomaly warranting escalation."
+ },
+ {
+  "txn_id": 6362466,
+  "label": 1,
+  "decision": "escalate",
+  "correct": true,
+  "tool_calls": 4,
+  "cost": 0.0365,
+  "summary": "Transaction 6362466 is a TRANSFER of amount=338364.14 that fully empties the origin account (oldbalanceOrg=338364.14, newbalanceOrig=0.0), matching the account-emptying pattern in policy P-02. The destination account (nameDest=C476657096) shows no balance change (oldbalanceDest=0.0, newbalanceDest=0.0) despite receiving the funds, an anomaly with no other transaction history found for either account to explain or mitigate it."
+ },
+ {
+  "txn_id": 6322569,
+  "label": 0,
+  "decision": "escalate",
+  "correct": false,
+  "tool_calls": 5,
+  "cost": 0.0658,
+  "summary": "Transaction 6322569 is a CASH_OUT of amount=221116.94 that drains the origin account (oldbalanceOrg=99650.0 to newbalanceOrig=0.0), with the amount anomalously exceeding the stated prior balance, matching the account-emptying pattern (P-02) and exceeding the P-01 high-value review threshold with no prior origin-destination relationship. The destination account C1533914180 shows a clear mule/funnel pattern, having received large CASH_OUT inflows from at least 6 distinct unrelated origin accounts across steps 162-688, accumulating substantial balance, which is a strong aggregated fraud indicator warranting escalation rather than simple review."
+ },
+ {
+  "txn_id": 6344706,
+  "label": 1,
+  "decision": "review",
+  "correct": true,
+  "tool_calls": 5,
+  "cost": 0.0394,
+  "summary": "Transaction 6344706 is a large TRANSFER of amount=10000000.0 that moves ~82.6% of the origin account's balance (oldbalanceOrg=12109967.47 to newbalanceOrig=2109967.47), matching the destination-account red flag in P-04 since oldbalanceDest=0.0 and newbalanceDest=0.0 despite receiving the funds, suggesting a possibly new/mule or improperly recorded account. No prior transaction history exists for either nameOrig (C2087654131) or nameDest (C476523986), so a round-trip cash-out chain (P-06) cannot be confirmed or ruled out, and the amount is not \u226595% of origin balance so P-02 does not strictly apply. Given the mule-account indicator but insufficient evidence of a full cash-out chain or account-emptying, this warrants review rather than escalation or clearance."
+ },
+ {
+  "txn_id": 6332206,
+  "label": 0,
+  "decision": "review",
+  "correct": false,
+  "tool_calls": 5,
+  "cost": 0.0493,
+  "summary": "unparseable agent output"
+ }
+]

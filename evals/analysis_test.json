@@ -1,0 +1,45 @@
+{
+  "set": "test",
+  "n": 100,
+  "model": {
+    "TP": 43,
+    "FN": 7,
+    "FP": 0,
+    "TN": 50,
+    "precision": 1.0,
+    "recall": 0.86,
+    "accuracy": 0.93,
+    "acc_95ci": [
+      0.88,
+      0.98
+    ]
+  },
+  "agent": {
+    "TP": 50,
+    "FN": 0,
+    "FP": 17,
+    "TN": 33,
+    "precision": 0.746,
+    "recall": 1.0,
+    "accuracy": 0.83,
+    "acc_95ci": [
+      0.75,
+      0.9
+    ]
+  },
+  "agent_escalate_only": {
+    "TP": 49,
+    "FN": 1,
+    "FP": 1,
+    "TN": 49,
+    "precision": 0.98,
+    "recall": 0.98,
+    "accuracy": 0.98
+  },
+  "disagreements": 24,
+  "agent_right_model_wrong": 7,
+  "model_right_agent_wrong": 17,
+  "cases_with_ungrounded_numbers": 10,
+  "avg_tool_calls": 5.34,
+  "cost_per_case_usd": 0.0462
+}

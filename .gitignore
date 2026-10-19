@@ -1,0 +1,9 @@
+data/*
+!data/.gitkeep
+.venv/
+__pycache__/
+*.pyc
+mlruns/
+.env
+.DS_Store
+.pytest_cache/
