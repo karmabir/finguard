@@ -1,7 +1,9 @@
 pandas
 numpy
 scikit-learn
-mcp
-anthropic
+mcp>=2,<3
+openai
 pytest
 python-dotenv
+fastapi
+uvicorn

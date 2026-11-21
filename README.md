@@ -5,8 +5,9 @@ investigates them through governed, read-only tools, retrieves policy, and retur
 (`clear` / `review` / `escalate`) with cited evidence. Built on the PaySim synthetic mobile-money dataset
 (6,362,620 transactions).
 
-**Status:** the core pipeline, evaluation harness and a 100-case test are done. The prompt-injection test is
-partially run, and several items are not built (see [Next steps](#next-steps)). Every number below is from this
+**Status:** the core pipeline, CLI, authenticated HTTP API, request monitoring, feature-drift detection, MCP server,
+evaluation harness and a 100-case test are done. The prompt-injection test is
+partially run, and several research items remain (see [Next steps](#next-steps)). Every number below is from this
 repository's own runs, and the [caveats](#caveats-read-before-citing-any-number) matter.
 
 ## Contents
@@ -48,7 +49,7 @@ Decisions: `clear` (no action), `review` (an analyst should look), `escalate` (h
    |                              - score_transaction: model score + flag
    +----------------+-----------------+
                     |
-              agent.py (Claude Sonnet 5, tool-use loop, max 8 turns)
+              agent.py (OpenAI Responses API, GPT-6 Luna, max 8 turns)
               + policy.py (TF-IDF retrieval over policies/P-01..P-10)
                     |
               JSON decision + cited evidence
@@ -87,8 +88,11 @@ finguard/
   model.py         features, temporal split, training, threshold, save/load
   tools.py         governed tools, audit log, label guard, score_transaction
   policy.py        TF-IDF policy retrieval
-  agent.py         investigation agent (Claude tool-use loop)
-  mcp_server.py    MCP wrapper around the tools (not yet run end to end)
+  agent.py         investigation agent (OpenAI Responses API tool loop)
+  __main__.py      CLI for setup, lookup, scoring, policy search, SQL and investigation
+  api.py           authenticated FastAPI service for lookup, scoring, policy and investigation
+  monitoring.py    Prometheus request metrics and per-feature PSI drift reports
+  mcp_server.py    MCP wrapper exposing the same four tools used by the agent
 policies/          ten synthetic policy documents (P-01..P-10)
 evals/
   make_dev_set.py       20 labeled cases (seed 0), used while developing
@@ -115,7 +119,7 @@ With the leaky `newbalanceOrig` feature, recall rose to about 0.98 in an earlier
 Model scores vary somewhat between training runs on identical settings (PR-AUC 0.93 to 0.94), so read single
 values as ranges.
 
-### Model vs agent: 100-case balanced test set
+### Model vs agent: 100-case balanced test set (historical Claude run)
 
 50 fraud and 50 legitimate TRANSFER/CASH_OUT transactions from the held-out period, disjoint from the dev set.
 
@@ -130,7 +134,7 @@ values as ranges.
   (the middle row). Report both.
 - Agent and model disagreed on 24 of 100 cases. The agent was right where the model was wrong on 7; the model was
   right where the agent was wrong on 17.
-- Average 5.3 tool calls and about $0.046 per case (Claude Sonnet 5).
+- Average 5.3 tool calls and about $0.046 per case (Claude Sonnet 5, before the OpenAI migration).
 - **Groundedness flags:** 10 of 100 cases had a number in the answer that appears in no tool output. Several look
   like derived values (ratios, policy thresholds), not fabrications, but these have not been reviewed by hand.
 
@@ -184,7 +188,8 @@ generated after those changes and not used to tune anything.
 - **Single seed.** One model seed and one agent run per case, so there is no run-to-run variance estimate for
   the agent.
 - **Groundedness flags unreviewed** (10 of 100).
-- The MCP server has not been run end to end, and there is no API, Docker image or monitoring.
+- The MCP server has not been exercised against a production MCP client. HTTP API-key authentication, request metrics,
+  and drift detection are implemented, but there is no user/role system, Docker image, alert manager, or hosted deployment.
 
 ## Next steps
 
@@ -197,7 +202,7 @@ In rough priority order.
 2. **Review the 10 groundedness flags by hand.** Classify each as derived value, policy number, or fabrication, and
    improve the checker (for example, allow computed ratios) so the metric is meaningful.
 3. **Resume bullets from measured numbers.** After step 1, write 2 to 3 bullets using only results in this README.
-4. **Run the MCP server end to end** (`python -m finguard.mcp_server`) with a real MCP client, and add a test.
+4. **Run the MCP server end to end** (`python -m finguard.mcp_server`) with a production MCP client. Its four-tool surface now matches the agent.
 5. **Repeat runs for variance.** Run the 100-case agent eval 3 times (about $14), and train the model with several
    seeds, to report ranges instead of single values.
 6. **Reduce `review` false positives.** The agent's `review` bucket produced all 17 false positives. Options: a
@@ -207,8 +212,8 @@ In rough priority order.
    precision.
 8. **Dense retrieval baseline.** Compare TF-IDF against embeddings for policy retrieval, and measure retrieval
    hit-rate with a labeled query set.
-9. **Serving (optional).** FastAPI endpoint with request logging, a Dockerfile, MLflow tracking, and a small drift
-   and latency dashboard.
+9. **Serving hardening.** API-key authentication, Prometheus-compatible request metrics, and PSI drift detection are
+    implemented. Add a user/role system, secret manager, alert rules, structured logs, Dockerfile, and hosted dashboards.
 10. **Planned modules not started:** an analytics agent (text-to-SQL over a semantic layer with an execution-accuracy
     benchmark) and an experimentation toolkit (CUPED, sequential tests) on the same data layer.
 
@@ -216,10 +221,18 @@ In rough priority order.
 
 ```
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-cp .env.example .env              # add your ANTHROPIC_API_KEY
+cp .env.example .env              # add your OPENAI_API_KEY
+# also replace FINGUARD_API_KEYS with a long random key used by HTTP clients
 # download the original PaySim CSV (Kaggle "ealaxi/paysim1") to data/paysim.csv
-python -m finguard.data           # builds data/finguard.db (about 10 seconds)
-python -c "from finguard.model import save_model; print(save_model())"   # trains and saves the model
+python -m finguard init           # builds the DB and trains the model (uses synthetic data if CSV is absent)
+python -m finguard score 123      # local model score; no API key or LLM cost
+python -m finguard train-models   # refresh all three models without rebuilding the database
+python -m finguard score 123 --model random_forest
+python -m finguard policy "account emptying transfer"
+python -m finguard investigate 123  # full agent investigation; uses API credits
+python -m finguard serve          # HTTP API and interactive docs at http://127.0.0.1:8000/docs
+python -m finguard.mcp_server     # MCP server over stdio
+python -m finguard mcp-http       # streamable HTTP MCP at http://127.0.0.1:8001/mcp
 python evals/run_evals.py         # model-only metrics
 python evals/make_dev_set.py && python evals/make_test_set.py
 python evals/run_agent_evals.py --set test --n 100 --resume    # costs API credits
@@ -228,8 +241,36 @@ python evals/injection_eval.py --n 10                          # costs API credi
 pytest                            # smoke tests
 ```
 
-## API spend
+Protected HTTP routes require `X-API-Key`. `/health` and `/metrics` remain public for load balancers and Prometheus:
 
-Recorded spend for this repository's runs: dev runs about $2.80 (three runs of 20 cases plus a 2-case check),
+```bash
+curl -H "X-API-Key: YOUR_API_KEY" http://127.0.0.1:8000/transactions/123/score
+curl -H "X-API-Key: YOUR_API_KEY" "http://127.0.0.1:8000/monitoring/drift?sample_size=10000"
+curl http://127.0.0.1:8000/metrics
+```
+
+The dashboard compares gradient boosting (default), random forest, and logistic regression on the same
+chronological test period. All three use the five pre-transaction inputs. Each model picks its own
+flag threshold on the validation period targeting 80% precision, with a 0.5 fallback if the target is
+unreachable. Transaction lookup shows all trained model scores and flags. The authenticated
+`GET /transactions/{txn_id}/scores` endpoint returns the comparison. A single-model artifact still
+works and shows one row until you run `python -m finguard train-models`.
+
+Drift uses population stability index (PSI) against distributions captured when the model is trained. PSI below 0.1
+is `stable`, 0.1–0.2 is `warning`, and 0.2 or higher is `drift`. Existing model artifacts created before this feature
+must be regenerated once with `python -m finguard init`.
+
+### Use FinGuard from ChatGPT through MCP
+
+This path does not require `OPENAI_API_KEY`: ChatGPT is the investigator and FinGuard supplies four read-only tools.
+Start `python -m finguard mcp-http`, then connect `http://127.0.0.1:8001/mcp` through a ChatGPT Secure MCP Tunnel.
+Alternatively, expose that local endpoint through a trusted HTTPS development tunnel and add its `https://.../mcp`
+URL under ChatGPT Plugins → Add custom MCP server. Choose no authentication only for a private development tunnel.
+Install the resulting plugin, start a Work chat, type `@`, select FinGuard, and ask it to investigate a transaction id.
+
+## Historical API spend
+
+Recorded spend for the pre-migration Claude runs: dev runs about $2.80 (three runs of 20 cases plus a 2-case check),
 the 100-case test about $4.60, and the partial injection test about $0.65. One crashed 100-case run was not
-recorded because it saved nothing. Sonnet 5 costs about $0.045 per investigated case.
+recorded because it saved nothing. Sonnet 5 cost about $0.045 per investigated case. New OpenAI runs are saved
+with their model id and should be evaluated separately rather than compared as if they were the same run.

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172044">
+  <meta name="description" content="Review transaction risk and monitor your FinGuard model.">
+  <title>FinGuard · Risk Operations</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="mast-inner">
+      <a class="brand" href="#overview" aria-label="FinGuard overview"><i aria-hidden="true"></i>FinGuard</a>
+      <nav aria-label="Dashboard sections">
+        <a href="#overview" aria-current="page">Overview</a>
+        <a href="#investigate">Transaction lookup</a>
+        <a href="#monitoring">Model monitoring</a>
+      </nav>
+      <div class="service" id="health-label" role="status">Connecting</div>
+    </div>
+  </header>
+  <main>
+    <section id="overview" class="view" aria-labelledby="overview-title">
+      <div class="page-title"><p class="kicker">Risk operations</p><h1 id="overview-title">Portfolio overview</h1></div>
+      <article class="hero">
+        <div class="rosette" aria-hidden="true"></div>
+        <div class="hero-content">
+          <h2>Review a transaction</h2>
+          <p>Look up a transaction to see its risk score and supporting evidence.</p>
+          <form class="lookup" data-lookup>
+            <label for="txn-id">Transaction ID</label>
+            <div class="input-row"><input id="txn-id" name="txn" type="number" min="0" step="1" value="0" required><button>Analyze transaction</button></div>
+          </form>
+        </div>
+      </article>
+      <div class="stats" aria-label="Portfolio metrics">
+        <article><h3>Transactions</h3><strong id="stat-total">—</strong><small>PaySim dataset</small></article>
+        <article><h3>Test PR-AUC</h3><strong id="stat-prauc">—</strong><small>Held-out test period</small></article>
+        <article><h3>Precision</h3><strong id="stat-precision">—</strong><small>Fraud among flagged cases</small></article>
+        <article><h3>Recall</h3><strong id="stat-recall">—</strong><small>Fraud cases flagged</small></article>
+      </div>
+      <div class="overview-grid">
+        <article class="panel"><h2>Transaction mix</h2>
+          <div class="mix-layout">
+            <div id="mix-chart" class="donut" aria-hidden="true"><div><strong id="type-count">—</strong><small>types</small></div></div>
+            <ul id="type-list" class="mix-list" aria-label="Transaction counts and share"> </ul>
+          </div>
+        </article>
+        <article class="panel model"><h2>Active model</h2><p id="model-name">Loading…</p>
+          <dl class="model-facts">
+            <div><dt>Feature set</dt><dd id="model-features">—</dd></div>
+            <div><dt>Flag threshold</dt><dd id="model-threshold">—</dd></div>
+          </dl>
+        </article>
+      </div>
+      <article class="panel comparison" aria-labelledby="test-model-heading">
+        <h2 id="test-model-heading">Model comparison</h2>
+        <p class="legend" id="test-period">Held-out test period</p>
+        <div class="table-wrap"><table aria-labelledby="test-model-heading">
+          <thead><tr><th scope="col">Model</th><th scope="col">PR-AUC</th><th scope="col">Precision</th><th scope="col">Recall</th><th scope="col">Flag threshold</th></tr></thead>
+          <tbody id="model-metrics"></tbody>
+        </table></div>
+        <p class="legend" id="threshold-note" hidden></p>
+      </article>
+      <p class="message" id="summary-message" role="status"></p>
+    </section>
+
+    <section id="investigate" class="view" aria-labelledby="review-title" hidden>
+      <div class="page-title"><p class="kicker">Transaction lookup</p><h1 id="review-title">Transaction review</h1></div>
+      <form class="lookup lookup-strip" data-lookup>
+        <label for="review-id">Transaction ID</label>
+        <div class="input-row"><input id="review-id" name="txn" type="number" min="0" step="1" value="0" required><button>Analyze transaction</button></div>
+      </form>
+      <p id="lookup-message" class="message" role="status">Enter an ID to see the model score and relevant policies.</p>
+      <div id="review-content" hidden>
+        <article class="score-card">
+          <div><h2 id="score-heading">Fraud model score</h2><strong id="score-percent" class="risk-number"></strong><p>Raw score <b id="score-value"></b></p></div>
+          <div class="score-context">
+            <span id="risk-tag" class="status"></span>
+            <p id="score-explanation"></p>
+            <div class="risk-scale" aria-hidden="true"><i id="score-marker"></i><b id="threshold-marker"></b></div>
+            <div class="axis" aria-hidden="true"><span>0%</span><span>100%</span></div>
+          </div>
+        </article>
+        <article class="panel comparison" aria-labelledby="compare-score-heading">
+          <h2 id="compare-score-heading">Scores for this transaction</h2>
+          <div class="table-wrap"><table aria-labelledby="compare-score-heading">
+            <thead><tr><th scope="col">Model</th><th scope="col">Score</th><th scope="col">Flag threshold</th><th scope="col">Decision</th></tr></thead>
+            <tbody id="transaction-scores"></tbody>
+          </table></div>
+        </article>
+        <div class="details-grid">
+          <article class="panel"><h2>Transaction fields</h2><dl id="transaction-fields" class="fields"></dl></article>
+          <article class="panel"><h2>Policy matches</h2><div id="policy-results"></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="monitoring" class="view" aria-labelledby="monitor-title" hidden>
+      <div class="page-title section-head"><div><p class="kicker">Model monitoring</p><h1 id="monitor-title">Feature drift</h1></div><button class="secondary" id="refresh-drift">Refresh report</button></div>
+      <article class="panel drift-summary" aria-live="polite"><strong id="drift-status">Loading report…</strong><p id="drift-note"></p></article>
+      <article class="panel drift-details"><h2>Population stability index</h2>
+        <p class="legend">Stable below 0.10 · Warning from 0.10 · Drift from 0.20</p>
+        <div id="drift-grid"></div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

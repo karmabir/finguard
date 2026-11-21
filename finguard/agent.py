@@ -4,15 +4,15 @@ import json
 import os
 from pathlib import Path
 
-import anthropic
 from dotenv import dotenv_values
+from openai import OpenAI
 
 from . import tools
 from .policy import PolicyIndex
 
-MODEL = os.environ.get("FINGUARD_MODEL", "claude-sonnet-5")
+MODEL = os.environ.get("FINGUARD_MODEL", "gpt-6-luna")
 MAX_TURNS = 8
-PRICES = {"claude-sonnet-5": (3.0, 15.0)}  # $/M tokens in, out
+PRICES = {"gpt-6-luna": (0.10, 0.50)}  # standard short-context $/M input, output
 
 SYSTEM = """You are a fraud investigator. Investigate ONE transaction and decide: clear, review, or escalate.
 Method: fetch the transaction, call score_transaction for the fraud model's score (a screening
@@ -28,24 +28,38 @@ When done, reply with ONLY this JSON:
 {"decision": "clear|review|escalate", "summary": "2-3 sentences", "evidence": [{"claim": "...", "source": "txn field or policy id or query"}]}"""
 
 TOOLS = [
-    {"name": "get_transaction", "description": "Fetch one transaction by txn_id.",
-     "input_schema": {"type": "object", "properties": {"txn_id": {"type": "integer"}}, "required": ["txn_id"]}},
-    {"name": "run_select", "description": "Run one read-only SELECT on table transactions (max 50 rows). Columns: txn_id, step, type, amount, nameOrig, oldbalanceOrg, newbalanceOrig, nameDest, oldbalanceDest, newbalanceDest. No SELECT *.",
-     "input_schema": {"type": "object", "properties": {"sql": {"type": "string"}}, "required": ["sql"]}},
-    {"name": "score_transaction", "description": "Fraud model score for one transaction (model_score, flag_threshold, model_flags_fraud).",
-     "input_schema": {"type": "object", "properties": {"txn_id": {"type": "integer"}}, "required": ["txn_id"]}},
-    {"name": "search_policy", "description": "Search the fraud policy documents; returns top matches with ids.",
-     "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
+    {"type": "function", "name": "get_transaction", "description": "Fetch one transaction by txn_id.",
+     "parameters": {"type": "object", "properties": {"txn_id": {"type": "integer"}}, "required": ["txn_id"], "additionalProperties": False}, "strict": True},
+    {"type": "function", "name": "run_select", "description": "Run one read-only SELECT on table transactions (max 50 rows). Columns: txn_id, step, type, amount, nameOrig, oldbalanceOrg, newbalanceOrig, nameDest, oldbalanceDest, newbalanceDest. No SELECT *.",
+     "parameters": {"type": "object", "properties": {"sql": {"type": "string"}}, "required": ["sql"], "additionalProperties": False}, "strict": True},
+    {"type": "function", "name": "score_transaction", "description": "Fraud model score for one transaction (model_score, flag_threshold, model_flags_fraud).",
+     "parameters": {"type": "object", "properties": {"txn_id": {"type": "integer"}}, "required": ["txn_id"], "additionalProperties": False}, "strict": True},
+    {"type": "function", "name": "search_policy", "description": "Search the fraud policy documents; returns top matches with ids.",
+     "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"], "additionalProperties": False}, "strict": True},
 ]
 
 
 def _client():
-    key = os.environ.get("ANTHROPIC_API_KEY") or dotenv_values(
-        Path(__file__).resolve().parents[1] / ".env").get("ANTHROPIC_API_KEY")
-    return anthropic.Anthropic(api_key=key, timeout=90.0, max_retries=3)
+    key = os.environ.get("OPENAI_API_KEY") or dotenv_values(
+        Path(__file__).resolve().parents[1] / ".env").get("OPENAI_API_KEY")
+    if not key or key == "your-key-here":
+        raise RuntimeError("OPENAI_API_KEY is not configured; add it to .env or the environment")
+    return OpenAI(api_key=key, timeout=90.0, max_retries=3)
 
 
 _policy = None
+
+
+def _parse_response(text):
+    try:
+        out = json.loads(text[text.index("{"): text.rindex("}") + 1])
+        if out.get("decision") not in {"clear", "review", "escalate"}:
+            raise ValueError("invalid decision")
+        if not isinstance(out.get("summary"), str) or not isinstance(out.get("evidence"), list):
+            raise ValueError("invalid response shape")
+        return out
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return {"decision": "review", "summary": "unparseable agent output", "evidence": [], "raw": text}
 
 
 def _run_tool(name, args):
@@ -67,31 +81,34 @@ def _run_tool(name, args):
 
 def investigate(txn_id: int, client=None):
     client = client or _client()
-    msgs = [{"role": "user", "content": f"Investigate transaction txn_id={txn_id}."}]
+    input_items = [{"role": "user", "content": f"Investigate transaction txn_id={txn_id}."}]
     tin = tout = 0
     calls = []
     outputs = []
     for _ in range(MAX_TURNS):
-        r = client.messages.create(model=MODEL, max_tokens=1500, system=SYSTEM, tools=TOOLS, messages=msgs,
-                                   thinking={"type": "disabled"})
+        r = client.responses.create(model=MODEL, instructions=SYSTEM, input=input_items, tools=TOOLS,
+                                    max_output_tokens=1500, reasoning={"effort": "low"})
         tin, tout = tin + r.usage.input_tokens, tout + r.usage.output_tokens
-        msgs.append({"role": "assistant", "content": r.content})
-        uses = [b for b in r.content if b.type == "tool_use"]
+        input_items += r.output
+        uses = [item for item in r.output if item.type == "function_call"]
         if not uses:
-            text = "".join(b.text for b in r.content if b.type == "text").strip()
-            pin, pout = PRICES.get(MODEL, (3.0, 15.0))
+            text = r.output_text.strip()
+            pin, pout = PRICES.get(MODEL, (0.0, 0.0))
             cost = (tin * pin + tout * pout) / 1e6
-            try:
-                out = json.loads(text[text.index("{"): text.rindex("}") + 1])
-            except Exception:
-                out = {"decision": "review", "summary": "unparseable agent output", "evidence": [], "raw": text}
-            return {**out, "txn_id": txn_id, "tool_calls": calls, "tool_outputs": outputs, "cost_usd": round(cost, 4)}
-        results = []
+            out = _parse_response(text)
+            return {**out, "txn_id": txn_id, "model": MODEL, "input_tokens": tin, "output_tokens": tout,
+                    "tool_calls": calls, "tool_outputs": outputs, "cost_usd": round(cost, 4)}
         for u in uses:
-            calls.append({"tool": u.name, "input": u.input})
-            out_txt = json.dumps(_run_tool(u.name, u.input), default=str)
+            try:
+                args = json.loads(u.arguments)
+            except json.JSONDecodeError:
+                args = {}
+            calls.append({"tool": u.name, "input": args})
+            out_txt = json.dumps(_run_tool(u.name, args), default=str)
             outputs.append(out_txt)
-            results.append({"type": "tool_result", "tool_use_id": u.id, "content": out_txt})
-        msgs.append({"role": "user", "content": results})
+            input_items.append({"type": "function_call_output", "call_id": u.call_id, "output": out_txt})
+    pin, pout = PRICES.get(MODEL, (0.0, 0.0))
+    cost = (tin * pin + tout * pout) / 1e6
     return {"decision": "review", "summary": "turn limit reached", "evidence": [], "txn_id": txn_id,
-            "tool_calls": calls, "cost_usd": 0}
+            "model": MODEL, "input_tokens": tin, "output_tokens": tout, "tool_calls": calls,
+            "tool_outputs": outputs, "cost_usd": round(cost, 4)}

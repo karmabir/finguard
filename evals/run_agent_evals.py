@@ -66,6 +66,7 @@ def main():
         model_flag = tools.score_transaction(c["txn_id"])["model_flags_fraud"]
         bad = ungrounded_numbers(r)
         rows.append({"txn_id": c["txn_id"], "label": c["label"], "decision": r["decision"], "correct": flagged == bool(c["label"]),
+                     "agent_model": r.get("model"),
                      "model_flag": model_flag, "model_correct": model_flag == bool(c["label"]),
                      "agrees_with_model": flagged == model_flag, "ungrounded": bad, "tool_calls": len(r["tool_calls"]),
                      "cost": r["cost_usd"], "summary": r["summary"]})
@@ -73,7 +74,7 @@ def main():
         print({k: rows[-1][k] for k in ("txn_id", "label", "decision", "model_flag", "ungrounded")}, flush=True)
         out_path.write_text(json.dumps({"rows": rows}, indent=1))
     n = len(rows)
-    summary = {"set": args.set, "n": n,
+    summary = {"set": args.set, "n": n, "agent_models": sorted({r.get("agent_model") or "legacy-unknown" for r in rows}),
                "agent_accuracy": round(sum(r["correct"] for r in rows) / n, 3),
                "model_accuracy": round(sum(r["model_correct"] for r in rows) / n, 3),
                "agent_model_agreement": round(sum(r["agrees_with_model"] for r in rows) / n, 3),
