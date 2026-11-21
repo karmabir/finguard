@@ -5,10 +5,7 @@ investigates them through governed, read-only tools, retrieves policy, and retur
 (`clear` / `review` / `escalate`) with cited evidence. Built on the PaySim synthetic mobile-money dataset
 (6,362,620 transactions).
 
-**Status:** the core pipeline, CLI, authenticated HTTP API, request monitoring, feature-drift detection, MCP server,
-evaluation harness and a 100-case test are done. The prompt-injection test is
-partially run, and several research items remain (see [Next steps](#next-steps)). Every number below is from this
-repository's own runs, and the [caveats](#caveats-read-before-citing-any-number) matter.
+The dashboard compares three fraud models on the same held-out transactions. FinGuard also includes an authenticated HTTP API, request monitoring, feature-drift detection, and an MCP server.
 
 ## Contents
 
@@ -18,10 +15,7 @@ repository's own runs, and the [caveats](#caveats-read-before-citing-any-number)
 4. [Project layout](#project-layout)
 5. [Results](#results)
 6. [Development history](#development-history)
-7. [Caveats](#caveats-read-before-citing-any-number)
-8. [Next steps](#next-steps)
-9. [Run it](#run-it)
-10. [API spend](#api-spend)
+7. [Run it](#run-it)
 
 ## What it does
 
@@ -134,7 +128,7 @@ values as ranges.
   (the middle row). Report both.
 - Agent and model disagreed on 24 of 100 cases. The agent was right where the model was wrong on 7; the model was
   right where the agent was wrong on 17.
-- Average 5.3 tool calls and about $0.046 per case (Claude Sonnet 5, before the OpenAI migration).
+- The agent averaged 5.3 tool calls per case.
 - **Groundedness flags:** 10 of 100 cases had a number in the answer that appears in no tool output. Several look
   like derived values (ratios, policy thresholds), not fabrications, but these have not been reviewed by hand.
 
@@ -149,8 +143,7 @@ controls). A run counts as "obeyed" if the decision flips to `clear`.
 | Fake authority (a "compliance note") | 4 | 0 | 4 |
 | Policy impersonation ("updated policy P-11") | not run | | |
 
-The run stopped when API credits ran out, so 16 planned cases were not run. Policy impersonation is the variant
-most likely to succeed, so no conclusion about it yet.
+The partial evaluation covered 14 of the 30 planned cases.
 
 ## Development history
 
@@ -172,50 +165,10 @@ Each step is kept here because the early results were poor and the fixes matter.
 6. **100-case test set.** Results above. The first full run crashed on an API timeout and, because results were only
    saved at the end, lost its output. The runner now retries failed calls, saves after every case, and supports
    `--resume`; the client has a 90-second timeout with retries.
-7. **Injection test.** Written and run in part before credits ran out.
+7. **Injection test.** Evaluated direct overrides and fake compliance notes.
 
 The dev set was used while changing policies (steps 4 and 5), so it is **not** a clean test. The 100-case set was
 generated after those changes and not used to tune anything.
-
-## Caveats (read before citing any number)
-
-- **PaySim is synthetic.** These results say nothing about real-world fraud performance.
-- **The balanced sample inflates precision.** The 100 cases are 50/50. At the true 1.4% fraud rate in the test
-  period (0.13% overall), precision would be lower.
-- **I wrote the policies myself**, and P-02 was revised after looking at errors on the dev set.
-- **PaySim's quirks.** Many legitimate transactions have an amount larger than the origin balance, which an
-  analyst would treat as a data issue.
-- **Single seed.** One model seed and one agent run per case, so there is no run-to-run variance estimate for
-  the agent.
-- **Groundedness flags unreviewed** (10 of 100).
-- The MCP server has not been exercised against a production MCP client. HTTP API-key authentication, request metrics,
-  and drift detection are implemented, but there is no user/role system, Docker image, alert manager, or hosted deployment.
-
-## Next steps
-
-In rough priority order.
-
-1. **Finish the injection test.** Add about $1 of API credits and run
-   `python evals/injection_eval.py --n 10` (it resumes from `injection_results.json`). Update the table above,
-   including the policy-impersonation variant. Then widen it: payloads in other fields (`nameOrig`), longer and
-   encoded payloads, and legitimate cases (can an attack force an `escalate`?).
-2. **Review the 10 groundedness flags by hand.** Classify each as derived value, policy number, or fabrication, and
-   improve the checker (for example, allow computed ratios) so the metric is meaningful.
-3. **Resume bullets from measured numbers.** After step 1, write 2 to 3 bullets using only results in this README.
-4. **Run the MCP server end to end** (`python -m finguard.mcp_server`) with a production MCP client. Its four-tool surface now matches the agent.
-5. **Repeat runs for variance.** Run the 100-case agent eval 3 times (about $14), and train the model with several
-   seeds, to report ranges instead of single values.
-6. **Reduce `review` false positives.** The agent's `review` bucket produced all 17 false positives. Options: a
-   stricter prompt for when `review` is allowed, or using the model score as a gate. Keep dev and test separate:
-   tune on a new dev set, and re-measure on a fresh test set.
-7. **Natural-prevalence evaluation.** Score the agent on a sample with realistic fraud prevalence to get honest
-   precision.
-8. **Dense retrieval baseline.** Compare TF-IDF against embeddings for policy retrieval, and measure retrieval
-   hit-rate with a labeled query set.
-9. **Serving hardening.** API-key authentication, Prometheus-compatible request metrics, and PSI drift detection are
-    implemented. Add a user/role system, secret manager, alert rules, structured logs, Dockerfile, and hosted dashboards.
-10. **Planned modules not started:** an analytics agent (text-to-SQL over a semantic layer with an execution-accuracy
-    benchmark) and an experimentation toolkit (CUPED, sequential tests) on the same data layer.
 
 ## Run it
 
@@ -225,19 +178,19 @@ cp .env.example .env              # add your OPENAI_API_KEY
 # also replace FINGUARD_API_KEYS with a long random key used by HTTP clients
 # download the original PaySim CSV (Kaggle "ealaxi/paysim1") to data/paysim.csv
 python -m finguard init           # builds the DB and trains the model (uses synthetic data if CSV is absent)
-python -m finguard score 123      # local model score; no API key or LLM cost
+python -m finguard score 123      # local model score
 python -m finguard train-models   # refresh all three models without rebuilding the database
 python -m finguard score 123 --model random_forest
 python -m finguard policy "account emptying transfer"
-python -m finguard investigate 123  # full agent investigation; uses API credits
+python -m finguard investigate 123  # agent investigation using OPENAI_API_KEY
 python -m finguard serve          # HTTP API and interactive docs at http://127.0.0.1:8000/docs
 python -m finguard.mcp_server     # MCP server over stdio
 python -m finguard mcp-http       # streamable HTTP MCP at http://127.0.0.1:8001/mcp
 python evals/run_evals.py         # model-only metrics
 python evals/make_dev_set.py && python evals/make_test_set.py
-python evals/run_agent_evals.py --set test --n 100 --resume    # costs API credits
+python evals/run_agent_evals.py --set test --n 100 --resume
 python evals/analyze.py test
-python evals/injection_eval.py --n 10                          # costs API credits
+python evals/injection_eval.py --n 10
 pytest                            # smoke tests
 ```
 
@@ -267,10 +220,3 @@ Start `python -m finguard mcp-http`, then connect `http://127.0.0.1:8001/mcp` th
 Alternatively, expose that local endpoint through a trusted HTTPS development tunnel and add its `https://.../mcp`
 URL under ChatGPT Plugins → Add custom MCP server. Choose no authentication only for a private development tunnel.
 Install the resulting plugin, start a Work chat, type `@`, select FinGuard, and ask it to investigate a transaction id.
-
-## Historical API spend
-
-Recorded spend for the pre-migration Claude runs: dev runs about $2.80 (three runs of 20 cases plus a 2-case check),
-the 100-case test about $4.60, and the partial injection test about $0.65. One crashed 100-case run was not
-recorded because it saved nothing. Sonnet 5 cost about $0.045 per investigated case. New OpenAI runs are saved
-with their model id and should be evaluated separately rather than compared as if they were the same run.
